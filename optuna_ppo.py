@@ -42,15 +42,6 @@ def objective(trial):
     lr = trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True)  # Cambiado de suggest_loguniform a suggest_float con log=True
     gamma = trial.suggest_float("gamma", 0.80, 0.995)  # Descuento de recompensas futuras (rango más amplio)
 
-    # Asegúrate de que n_steps y n_envs son consistentes
-    n_steps = trial.suggest_int("n_steps", 128, 2048, step=128)  # Número de pasos por actualización
-    n_envs = 1  # Número de entornos, si usas más entornos, ajusta este valor
-    n_steps_envs = n_steps * n_envs
-
-    # Asegura que el batch_size sea un divisor de n_steps_envs
-    valid_batch_sizes = [i for i in range(1, n_steps_envs+1) if n_steps_envs % i == 0]
-
-    batch_size = trial.suggest_categorical("batch_size", valid_batch_sizes)
 
     ent_coef = trial.suggest_float("ent_coef", 0.0, 0.2)  # Coeficiente de entropía (opciones más amplias)
     clip_range = trial.suggest_float("clip_range", 0.1, 0.4)  # Rango de recorte de PPO (rango más amplio)
@@ -58,16 +49,21 @@ def objective(trial):
     vf_coef = trial.suggest_float("vf_coef", 0.1, 1.0)  # Coeficiente de función de valor (más opciones)
 
 
+    num_steps = 200_000
 
 
-    
     if algo_name == "PPO":
-       model = PPO("MlpPolicy", env, learning_rate=lr, gamma=gamma, batch_size=batch_size, 
-                   n_steps=n_steps, ent_coef=ent_coef, clip_range=clip_range, 
+       model = PPO("MlpPolicy", env, learning_rate=lr, gamma=gamma, batch_size=128, 
+                   n_steps=128, ent_coef=ent_coef, clip_range=clip_range, 
                    gae_lambda=gae_lambda, vf_coef=vf_coef, verbose=0)
+       
+    
+    
+    
+    
     
     # Entrenar el modelo
-    model.learn(total_timesteps=1)
+    model.learn(total_timesteps=num_steps)
 
     # Evaluar la política aprendida
     avg_reward, avg_steps = evaluate_policy(env, model, model.policy, n_episodes=10, verbose=True)
@@ -89,7 +85,7 @@ if __name__ == "__main__":
                    exclude_current_positions_from_observation=False,
                    reset_noise_scale=0,
                    frame_skip=1,
-                   max_episode_steps=100, render_mode='human')
+                   max_episode_steps=1_000_000)
 
     # Fijar la semilla para reproducibilidad
     seed = 42
