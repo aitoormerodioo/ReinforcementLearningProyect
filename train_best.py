@@ -12,41 +12,47 @@ def train_manual_sac(env, model, n_steps):
     Entrena un modelo SAC por el número de pasos especificados y evalúa su desempeño.
     """
     # Entrenar el modelo
-    model.learn(total_timesteps=n_steps)
+    model.learn(total_timesteps=n_steps, log_interval=10)
 
     # Evaluar el modelo
-    avg_reward, avg_steps = evaluate_policy(env, model, model, max_total_steps=10_000, n_episodes=5)
+    avg_reward, avg_steps = evaluate_policy(env, model, model, max_total_steps=50_000, max_steps_per_episode=10_000, n_episodes=5,verbose = True)
     print(f"Avg Reward: {avg_reward}, Avg Steps: {avg_steps}")
 
     return model, avg_reward
 
 
-def evaluate_policy(env, model, policy, max_total_steps, n_episodes=5, verbose=False):
+def evaluate_policy(env, model, policy, max_total_steps=50_000, max_steps_per_episode=10_000, n_episodes=5, verbose=False):
     """
-    Evalúa la política aprendida por el modelo.
+    Evalúa la política aprendida por el modelo con un límite máximo de pasos por episodio.
     """
     total_reward = 0
     total_steps = 0
+
     for episode in range(n_episodes):
         obs, _ = env.reset()
         done = False
         episode_reward = 0
         episode_steps = 0
-        while not done and total_steps < max_total_steps:
-            selected_action, _ = policy.predict(obs, deterministic=True)  # Usar SAC.predict
+
+        while not done and episode_steps < max_steps_per_episode and total_steps < max_total_steps:
+            selected_action, _ = policy.predict(obs, deterministic=False)  # Usar SAC.predict
             obs, reward, done, truncated, _ = env.step(selected_action)
+            
+            
             episode_reward += reward
             episode_steps += 1
-            total_reward += episode_reward
-            total_steps += episode_steps
+            total_steps += 1
 
-        # Si verbose es True, imprimir los resultados del episodio
+        total_reward += episode_reward
+
         if verbose:
-            print(f"Episode {episode + 1} Reward: {episode_reward}, Steps: {episode_steps}")
+            print(f"Episode {episode + 1} Reward: {episode_reward}, Steps: {episode_steps}, Done: {done}, Truncated: {truncated}")
     
     avg_reward = total_reward / n_episodes
     avg_steps = total_steps / n_episodes
+
     return avg_reward, avg_steps
+
 
 
 if __name__ == "__main__":
@@ -76,7 +82,7 @@ if __name__ == "__main__":
     env.reset(seed=seed)
 
     # Número de pasos de entrenamiento
-    n_steps = 1000
+    n_steps = 50_000
 
     # Mejores conjuntos de hiperparámetros ENCONTRADOS
     best_params = {
@@ -88,9 +94,6 @@ if __name__ == "__main__":
         "ent_coef": 0.2,  # Usando Alpha (Entropy Coefficient)
         "train_freq": 1,  # "Number of Steps per Update" = 1
     }
-
-    # Configuración del dispositivo
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Rutas relativas para modelos y logs
     model_dir = os.path.join(current_dir, 'sac_ant_best_model')
@@ -123,7 +126,7 @@ if __name__ == "__main__":
             tau=best_params["tau"],
             gamma=best_params["gamma"],
             ent_coef=best_params["ent_coef"],
-            verbose=1,
+            verbose=0,
         )
 
     # Entrenar el modelo
@@ -135,8 +138,6 @@ if __name__ == "__main__":
     model.save(model_path)
     print(f"Model saved at {model_path}")
 
-    # Cerrar el entorno
-    env.close()
 
     # Guardar las recompensas promedio en un archivo JSON
     results = {
@@ -147,3 +148,4 @@ if __name__ == "__main__":
     with open(results_path, "w") as f:
         json.dump(results, f, indent=4)
     print(f"Training results saved at {results_path}")
+
