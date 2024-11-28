@@ -58,9 +58,12 @@ if __name__ == "__main__":
                    reset_noise_scale=0,
                    frame_skip=1,
                    max_episode_steps=1_000_000,render_mode = 'human_mode')
+    
+    
+    
 
     # Ruta del modelo guardado
-    model_path = "sac_ant_best_model/sac_ant_model.zip"
+    model_path = "sac_ant_best_model/NOMBRE_MODELO.zip"
 
     # Comprobar si existe el modelo guardado
     if not os.path.exists(model_path):

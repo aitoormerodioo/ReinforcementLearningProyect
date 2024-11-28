@@ -5,7 +5,7 @@ import random
 import json
 from stable_baselines3 import SAC
 import torch
-
+from datetime import datetime
 
 def train_manual_sac(env, model, n_steps):
     """
@@ -52,10 +52,13 @@ def evaluate_policy(env, model, policy, max_total_steps, n_episodes=5, verbose=F
 if __name__ == "__main__":
     # Configuración del entorno
     env_name = "Ant-v5"
-    ###
     
+    # Uso de rutas relativas
+    current_dir = os.path.dirname(os.path.realpath(__file__))  # Directorio actual donde se ejecuta el script
+    xml_path = os.path.join(current_dir, 'mujoco_menagerie', 'unitree_go1', 'scene.xml')  # Ruta relativa
+
     env = gym.make('Ant-v5', 
-                   xml_file='./mujoco_menagerie/unitree_go1/scene.xml',
+                   xml_file=xml_path,
                    forward_reward_weight=1,
                    ctrl_cost_weight=0.1,
                    contact_cost_weight=1,
@@ -68,17 +71,14 @@ if __name__ == "__main__":
                    frame_skip=1,
                    max_episode_steps=1_000_000)
     
-    
-    
-    
     seed = 42
     random.seed(seed)
     env.reset(seed=seed)
 
     # Número de pasos de entrenamiento
-    n_steps = 500_000
+    n_steps = 1000
 
-    # Mejores conjuntos de hiperparámetros ENCONTRADOS1
+    # Mejores conjuntos de hiperparámetros ENCONTRADOS
     best_params = {
         "learning_rate": 0.0003,
         "buffer_size": 1_000_000,
@@ -89,22 +89,34 @@ if __name__ == "__main__":
         "train_freq": 1,  # "Number of Steps per Update" = 1
     }
 
-    
     # Configuración del dispositivo
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # Ruta donde se guarda el modelo
-    model_path = "sac_ant_best_model/sac_ant_model.zip"
+    # Rutas relativas para modelos y logs
+    model_dir = os.path.join(current_dir, 'sac_ant_best_model')
+    log_dir = os.path.join(current_dir, 'logs')
+    os.makedirs(model_dir, exist_ok=True)
+    
+    trainin_r = os.path.join(current_dir, 'training_results')
+    os.makedirs(trainin_r, exist_ok=True)
 
-    # Comprobar si existe un modelo guardado
-    if os.path.exists(model_path):
-        print(f"Model found at {model_path}. Loading the model...")
-        model = SAC.load(model_path, env=env)
+    # Obtener la fecha actual para nombres únicos
+    date_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    # Buscar el modelo más reciente en el directorio
+    model_files = [f for f in os.listdir(model_dir) if f.endswith(".zip")]
+    if model_files:
+        # Encontrar el modelo más reciente basado en el nombre
+        model_files.sort(reverse=True)
+        latest_model_path = os.path.join(model_dir, model_files[0])
+        print(f"Found existing model: {latest_model_path}. Continuing training from this model.")
+        model = SAC.load(latest_model_path, env=env)
     else:
-        print("No model found. Creating a new model...")
+        print("No existing model found. Creating a new model...")
         model = SAC(
             "MlpPolicy",
             env,
+            tensorboard_log=log_dir,
             learning_rate=best_params["learning_rate"],
             buffer_size=best_params["buffer_size"],
             batch_size=best_params["batch_size"],
@@ -114,11 +126,12 @@ if __name__ == "__main__":
             verbose=1,
         )
 
-    # Entrenar el modelo (ya sea cargado o nuevo)
+    # Entrenar el modelo
     print("Training the model...")
     model, avg_reward = train_manual_sac(env, model, n_steps)
     
-    # Guardar el modelo actualizado
+    # Guardar el modelo actualizado con la fecha actual
+    model_path = os.path.join(model_dir, f"sac_ant_model_{date_str}.zip")
     model.save(model_path)
     print(f"Model saved at {model_path}")
 
@@ -127,7 +140,10 @@ if __name__ == "__main__":
 
     # Guardar las recompensas promedio en un archivo JSON
     results = {
+        "model_name": f"sac_ant_model_{date_str}.zip",
         "final_reward": avg_reward,
     }
-    with open("training_results/training_results.json", "w") as f:
+    results_path = os.path.join(current_dir, f"training_results/training_results_{date_str}.json")
+    with open(results_path, "w") as f:
         json.dump(results, f, indent=4)
+    print(f"Training results saved at {results_path}")
