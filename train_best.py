@@ -15,13 +15,13 @@ def train_manual_sac(env, model, n_steps):
     model.learn(total_timesteps=n_steps)
 
     # Evaluar el modelo
-    avg_reward, avg_steps = evaluate_policy(env, model, model, max_total_steps=200, n_episodes=10)
+    avg_reward, avg_steps = evaluate_policy(env, model, model, max_total_steps=10_000, n_episodes=5)
     print(f"Avg Reward: {avg_reward}, Avg Steps: {avg_steps}")
 
     return model, avg_reward
 
 
-def evaluate_policy(env, model, policy, max_total_steps=5000, n_episodes=5, verbose=False):
+def evaluate_policy(env, model, policy, max_total_steps, n_episodes=5, verbose=False):
     """
     Evalúa la política aprendida por el modelo.
     """
@@ -52,7 +52,25 @@ def evaluate_policy(env, model, policy, max_total_steps=5000, n_episodes=5, verb
 if __name__ == "__main__":
     # Configuración del entorno
     env_name = "Ant-v5"
-    env = gym.make(env_name)
+    ###
+    
+    env = gym.make('Ant-v5', 
+                   xml_file='./mujoco_menagerie/unitree_go1/scene.xml',
+                   forward_reward_weight=1,
+                   ctrl_cost_weight=0.1,
+                   contact_cost_weight=1,
+                   healthy_reward=0,
+                   main_body=1,
+                   healthy_z_range=(0, np.inf),
+                   include_cfrc_ext_in_observation=True,
+                   exclude_current_positions_from_observation=False,
+                   reset_noise_scale=0,
+                   frame_skip=1,
+                   max_episode_steps=1_000_000)
+    
+    
+    
+    
     seed = 42
     random.seed(seed)
     env.reset(seed=seed)
@@ -60,15 +78,17 @@ if __name__ == "__main__":
     # Número de pasos de entrenamiento
     n_steps = 500_000
 
-    # Mejores conjuntos de hiperparámetros
+    # Mejores conjuntos de hiperparámetros ENCONTRADOS1
     best_params = {
-        "learning_rate": 0.001,
-        "buffer_size": 1000000,
+        "learning_rate": 0.0003,
+        "buffer_size": 1_000_000,
         "batch_size": 256,
-        "tau": 0.005,
+        "tau": 1.0,  # Correspondiente a "Target Update Interval" = 1
         "gamma": 0.99,
-        "ent_coef": "auto",
+        "ent_coef": 0.2,  # Usando Alpha (Entropy Coefficient)
+        "train_freq": 1,  # "Number of Steps per Update" = 1
     }
+
     
     # Configuración del dispositivo
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -109,5 +129,5 @@ if __name__ == "__main__":
     results = {
         "final_reward": avg_reward,
     }
-    with open("training_results.json", "w") as f:
+    with open("training_results/training_results.json", "w") as f:
         json.dump(results, f, indent=4)
