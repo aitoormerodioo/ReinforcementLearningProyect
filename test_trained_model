@@ -5,6 +5,7 @@ import random
 import json
 from stable_baselines3 import SAC
 import torch
+from datetime import datetime
 
 def test_model_with_render(env, model, n_episodes, max_total_steps=100_000):
     """
@@ -22,7 +23,7 @@ def test_model_with_render(env, model, n_episodes, max_total_steps=100_000):
         print(f"--- Episode {episode + 1} ---")
         while not done and episode_steps < max_total_steps:
             env.render()  # Renderizar el entorno
-            action, _ = model.predict(obs, deterministic=True)  # Política aprendida
+            action, _ = model.predict(obs, deterministic=False)  # Política aprendida
             obs, reward, done, truncated, _ = env.step(action)
             episode_reward += reward
             episode_steps += 1
@@ -41,37 +42,37 @@ def test_model_with_render(env, model, n_episodes, max_total_steps=100_000):
 
 if __name__ == "__main__":
     # Configuración del entorno
-    
-    
     env_name = "Ant-v5"
     
+    # Uso de rutas relativas
+    current_dir = os.path.dirname(os.path.realpath(__file__))  # Directorio actual donde se ejecuta el script
+    xml_path = os.path.join(current_dir, 'mujoco_menagerie', 'unitree_go1', 'scene.xml')  # Ruta relativa
     env = gym.make('Ant-v5', 
-                   xml_file='./mujoco_menagerie/unitree_go1/scene.xml',
-                   forward_reward_weight=0,
-                   ctrl_cost_weight=0,
-                   contact_cost_weight=0,
-                   healthy_reward=0,
+                   xml_file=xml_path,
+                   forward_reward_weight=1,
+                   ctrl_cost_weight=0.1,
+                   contact_cost_weight=0.5,
+                   healthy_reward=0.1,
                    main_body=1,
-                   healthy_z_range=(0, np.inf),
-                   include_cfrc_ext_in_observation=True,
-                   exclude_current_positions_from_observation=False,
+                   healthy_z_range=(0.2, 1),
                    reset_noise_scale=0,
                    frame_skip=1,
-                   max_episode_steps=1_000_000,render_mode = 'human_mode')
-    
-    
-    
+                   max_episode_steps=1_000,render_mode = 'human')
 
-    # Ruta del modelo guardado
-    model_path = "sac_ant_best_model/NOMBRE_MODELO.zip"
+    # Rutas relativas para modelos y logs
+    model_dir = os.path.join(current_dir, 'sac_ant_best_model')
+    os.makedirs(model_dir, exist_ok=True)
 
-    # Comprobar si existe el modelo guardado
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"No trained model found at {model_path}. Train a model first.")
-
-    # Cargar el modelo entrenado
-    print(f"Loading the model from {model_path}...")
-    model = SAC.load(model_path)
+    # Buscar el modelo más reciente en el directorio
+    model_files = [f for f in os.listdir(model_dir) if f.endswith(".zip")]
+    if model_files:
+        # Encontrar el modelo más reciente basado en el nombre
+        model_files.sort(reverse=True)
+        latest_model_path = os.path.join(model_dir, model_files[0])
+        print(f"Found existing model: {latest_model_path}. Loading model...")
+        model = SAC.load(latest_model_path)
+    else:
+        raise FileNotFoundError(f"No trained model found in {model_dir}. Please train a model first.")
 
     # Probar el modelo con renderizado
     print("Testing the model with rendering...")
