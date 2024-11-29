@@ -80,7 +80,7 @@ if __name__ == "__main__":
     env.reset(seed=seed)
 
     # Número de pasos de entrenamiento
-    n_steps = 100_000_0
+    n_steps = 300_000
 
     # Mejores conjuntos de hiperparámetros ENCONTRADOS
     best_params = {
